@@ -131,7 +131,7 @@ std.manifestYamlDoc(
         get: Get {
           tags: ['Active File'],
           summary: 'Return the content of the active file open in Obsidian.\n',
-          description: 'Returns the content of the currently active file in Obsidian.\n\nIf you specify the header `Accept: application/vnd.olrapi.note+json`, will return a JSON representation of your note including parsed tag and frontmatter data as well as filesystem metadata.  See "responses" below for details.\n',
+          description: 'Returns the content of the currently active file in Obsidian.\n\nContent format options via Accept header:\n- `Accept: application/vnd.olrapi.note+json` - Returns a JSON representation including parsed tag and frontmatter data as well as filesystem metadata\n- `Accept: application/vnd.olrapi.note+html` - Returns rendered HTML from markdown files\n- Default - Returns raw file content\n\nSee "responses" below for details.\n',
         },
         put: Put {
           tags: [
@@ -166,7 +166,7 @@ std.manifestYamlDoc(
             'Vault Files',
           ],
           summary: 'Return the content of a single file in your vault.\n',
-          description: 'Returns the content of the file at the specified path in your vault should the file exist.\n\nIf you specify the header `Accept: application/vnd.olrapi.note+json`, will return a JSON representation of your note including parsed tag and frontmatter data as well as filesystem metadata.  See "responses" below for details.\n',
+          description: 'Returns the content of the file at the specified path in your vault should the file exist.\n\nContent format options via Accept header:\n- `Accept: application/vnd.olrapi.note+json` - Returns a JSON representation including parsed tag and frontmatter data as well as filesystem metadata\n- `Accept: application/vnd.olrapi.note+html` - Returns rendered HTML from markdown files\n- Default - Returns raw file content\n\nSee "responses" below for details.\n',
           parameters+: [ParamPath],
         },
         put: Put {

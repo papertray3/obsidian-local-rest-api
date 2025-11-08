@@ -3,6 +3,8 @@ import {
   App,
   CachedMetadata,
   Command,
+  Component,
+  MarkdownRenderer,
   PluginManifest,
   prepareSimpleSearch,
   TFile,
@@ -205,6 +207,30 @@ export default class RequestHandler {
     };
   }
 
+  async renderMarkdownToHtml(
+    markdown: string,
+    sourcePath: string
+  ): Promise<string> {
+    const component = new Component();
+    component.load();
+
+    // Create a temporary div to render into
+    const renderDiv = document.createElement("div");
+
+    await MarkdownRenderer.render(
+      this.app,
+      markdown,
+      renderDiv,
+      sourcePath,
+      component
+    );
+
+    const html = renderDiv.innerHTML;
+    component.unload();
+
+    return html;
+  }
+
   getResponseMessage({
     statusCode = 400,
     message,
@@ -327,6 +353,23 @@ export default class RequestHandler {
             JSON.stringify(await this.getFileMetadataObject(file), null, 2)
           );
           return;
+        }
+
+        if (req.headers.accept === ContentTypes.olrapiNoteHtml) {
+          const file = this.app.vault.getAbstractFileByPath(path) as TFile;
+          if (file && mimeType === ContentTypes.markdown) {
+            const markdown = await this.app.vault.cachedRead(file);
+            const html = await this.renderMarkdownToHtml(markdown, path);
+            res.setHeader("Content-Type", ContentTypes.olrapiNoteHtml);
+            res.send(html);
+            return;
+          } else {
+            this.returnCannedResponse(res, {
+              statusCode: 400,
+              message: "Rendered HTML is only available for markdown files",
+            });
+            return;
+          }
         }
 
         res.send(Buffer.from(content));
