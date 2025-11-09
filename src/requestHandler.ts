@@ -214,21 +214,107 @@ export default class RequestHandler {
     const component = new Component();
     component.load();
 
-    // Create a temporary div to render into
+    // Attach to DOM so Dataview/DataviewJS processors that rely on layout lifecycle run.
+    const host = document.createElement("div");
+    host.style.cssText = "position:absolute;left:-9999px;top:0;width:0;height:0;overflow:hidden;";
     const renderDiv = document.createElement("div");
+    host.appendChild(renderDiv);
+    document.body.appendChild(host);
 
-    await MarkdownRenderer.render(
-      this.app,
-      markdown,
-      renderDiv,
-      sourcePath,
-      component
+    try {
+      await MarkdownRenderer.render(
+        this.app,
+        markdown,
+        renderDiv,
+        sourcePath,
+        component
+      );
+      await this.waitForDynamicBlocks(renderDiv);
+
+      return renderDiv.innerHTML;
+    } finally {
+      component.unload();
+      host.remove();
+    }
+  }
+
+  private hasPendingDynamicContent(container: HTMLElement): boolean {
+    const dataviewBlocks = Array.from(
+      container.querySelectorAll<HTMLElement>(
+        ".block-language-dataview, .block-language-dataviewjs"
+      )
     );
 
-    const html = renderDiv.innerHTML;
-    component.unload();
+    for (const block of dataviewBlocks) {
+      if (this.isDataviewBlockPending(block)) {
+        return true;
+      }
+    }
 
-    return html;
+    return false;
+  }
+
+  private isDataviewBlockPending(block: HTMLElement): boolean {
+    if (block.classList.contains("block-language-dataview")) {
+      const renderedContent = block.querySelector(".dataview");
+      if (!renderedContent) {
+        return true;
+      }
+      const text = renderedContent.textContent?.trim() ?? "";
+      if (text.length === 0 || text.toLowerCase() === "loading...") {
+        return true;
+      }
+      return false;
+    }
+
+    if (block.classList.contains("block-language-dataviewjs")) {
+      const text = block.textContent?.trim() ?? "";
+      const hasChildElements = block.childElementCount > 0;
+      return !hasChildElements && text.length === 0;
+    }
+
+    return false;
+  }
+
+  private async waitForDynamicBlocks(
+    container: HTMLElement,
+    timeoutMs = 5000
+  ): Promise<void> {
+    if (!this.hasPendingDynamicContent(container)) {
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      let observer: MutationObserver | null = null;
+      let timeoutId: number | null = null;
+      let settled = false;
+
+      const finish = () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        if (observer) {
+          observer.disconnect();
+        }
+        if (timeoutId !== null) {
+          window.clearTimeout(timeoutId);
+        }
+        resolve();
+      };
+
+      observer = new MutationObserver(() => {
+        if (!this.hasPendingDynamicContent(container)) {
+          finish();
+        }
+      });
+
+      observer.observe(container, { childList: true, subtree: true });
+
+      timeoutId = window.setTimeout(() => {
+        finish();
+      }, timeoutMs);
+    });
   }
 
   getResponseMessage({

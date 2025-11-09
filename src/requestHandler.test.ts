@@ -3,7 +3,7 @@ import request from "supertest";
 
 import RequestHandler from "./requestHandler";
 import { LocalRestApiSettings } from "./types";
-import { CERT_NAME } from "./constants";
+import { CERT_NAME, ContentTypes } from "./constants";
 import {
   App,
   TFile,
@@ -184,6 +184,50 @@ describe("requestHandler", () => {
         .get(`/vault/${arbitraryFilename}`)
         .set("Authorization", `Bearer ${API_KEY}`)
         .expect(404);
+    });
+
+    test("file content rendered html when requested", async () => {
+      const arbitraryFilename = "somefile.md";
+      const markdownContent = "# Heading";
+      const renderedHtml = "<h1>Heading</h1>";
+
+      app.vault._cachedRead = markdownContent;
+      const file = new TFile();
+      file.path = arbitraryFilename;
+      app.vault._getAbstractFileByPath = file;
+
+      const renderSpy = jest
+        .spyOn(handler, "renderMarkdownToHtml")
+        .mockResolvedValue(renderedHtml);
+
+      const result = await request(server)
+        .get(`/vault/${arbitraryFilename}`)
+        .set("Authorization", `Bearer ${API_KEY}`)
+        .set("Accept", ContentTypes.olrapiNoteHtml)
+        .expect(200);
+
+      expect(renderSpy).toHaveBeenCalledWith(markdownContent, arbitraryFilename);
+      expect(result.header["content-type"]).toEqual(
+        ContentTypes.olrapiNoteHtml
+      );
+      expect(result.text).toEqual(renderedHtml);
+
+      renderSpy.mockRestore();
+    });
+
+    test("html request rejected for non-markdown files", async () => {
+      const arbitraryFilename = "image.png";
+
+      await request(server)
+        .get(`/vault/${arbitraryFilename}`)
+        .set("Authorization", `Bearer ${API_KEY}`)
+        .set("Accept", ContentTypes.olrapiNoteHtml)
+        .expect(400)
+        .expect((response) => {
+          expect(response.body.message).toContain(
+            "Rendered HTML is only available for markdown files"
+          );
+        });
     });
   });
 

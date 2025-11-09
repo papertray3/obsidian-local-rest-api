@@ -145,6 +145,24 @@ export class App {
   };
 }
 
+export class Component {
+  load(): void {}
+  unload(): void {}
+}
+
+export class MarkdownRenderer {
+  static async render(
+    app: App,
+    markdown: string,
+    container: HTMLElement,
+    sourcePath: string,
+    component: Component
+  ): Promise<void> {
+    // Minimal mock to satisfy tests; actual rendering happens inside Obsidian.
+    container.innerHTML = markdown;
+  }
+}
+
 export class Command {
   id = "";
   name = "";
